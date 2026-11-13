@@ -1,0 +1,38 @@
+{
+  "name": "@documind/api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "DocuMind AI backend API (Express)",
+  "scripts": {
+    "build": "prisma generate && tsc -p tsconfig.json",
+    "dev": "prisma generate && tsx watch src/main.ts",
+    "start": "node dist/main.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "prisma generate && tsc -p tsconfig.json --noEmit",
+    "prisma:generate": "prisma generate",
+    "prisma:validate": "prisma validate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:deploy": "prisma migrate deploy",
+    "prisma:studio": "prisma studio"
+  },
+  "dependencies": {
+    "@documind/shared": "workspace:*",
+    "@prisma/adapter-pg": "7.10.1",
+    "@prisma/client": "7.10.1",
+    "cors": "2.8.6",
+    "dotenv": "18.0.10",
+    "express": "5.3.0",
+    "pg": "8.23.1"
+  },
+  "devDependencies": {
+    "@types/cors": "2.8.19",
+    "@types/express": "5.0.6",
+    "@types/node": "26.6.6",
+    "@types/pg": "8.23.1",
+    "prisma": "7.10.1",
+    "tsx": "4.23.15",
+    "typescript": "6.0.3",
+    "vitest": "^5.1.0"
+  }
+}

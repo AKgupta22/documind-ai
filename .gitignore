@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+.next/
+out/
+build/
+*.tsbuildinfo
+
+# Prisma generated client (recreated by `pnpm db:generate`)
+apps/api/src/generated/
+
+# Environment files (only *.example files are committed)
+.env
+.env.*
+!.env.example
+!**/.env.example
+
+# Logs
+*.log
+logs/
+pnpm-debug.log*
+
+# Test and coverage output
+coverage/
+.nyc_output/
+
+# Editor and OS files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Local Docker volumes
+docker-data/

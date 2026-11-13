@@ -1,0 +1,21 @@
+{
+  "name": "documind-ai",
+  "version": "0.1.0",
+  "private": true,
+  "description": "DocuMind AI - personal AI document intelligence assistant",
+  "packageManager": "pnpm@12.11.2",
+  "engines": {
+    "node": ">=22.12.0",
+    "pnpm": ">=10"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @documind/shared build && pnpm --parallel --filter @documind/api --filter @documind/web dev",
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck",
+    "db:generate": "pnpm --filter @documind/api prisma:generate",
+    "db:migrate": "pnpm --filter @documind/api prisma:migrate",
+    "db:deploy": "pnpm --filter @documind/api prisma:deploy",
+    "db:studio": "pnpm --filter @documind/api prisma:studio"
+  }
+}

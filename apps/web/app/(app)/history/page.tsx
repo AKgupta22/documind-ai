@@ -1,0 +1,10 @@
+import type { Metadata } from 'next';
+import { HistoryView } from '@/components/history/history-view';
+
+export const metadata: Metadata = {
+  title: 'History — DocuMind AI',
+};
+
+export default function HistoryPage() {
+  return <HistoryView />;
+}
