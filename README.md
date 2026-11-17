@@ -297,6 +297,10 @@ No AI provider, queue, Redis, or microservice dependencies are installed in this
 - Timestamp columns use `@db.Timestamptz(3)`, so PostgreSQL stores the instant in UTC and
   converts it per connection timezone. The existing `email_verifications.createdAt` and
   `expiresAt` columns were migrated from `TIMESTAMP(3)` to `TIMESTAMPTZ(3)`.
+- `users` now has `created_at` and `updated_at` (`createdAt`/`updatedAt` in Prisma, with
+  `@updatedAt` maintained by Prisma). The migration backfilled existing users from their
+  earliest email verification token's `createdAt`, falling back to the migration time when no
+  token existed.
 
 ## Verifying the foundation
 
