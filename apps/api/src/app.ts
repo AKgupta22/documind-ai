@@ -2,7 +2,9 @@ import { API_PREFIX } from '@documind/shared';
 import cors from 'cors';
 import express, { type Express } from 'express';
 import type { PrismaClient } from './generated/prisma/client';
-import { createHealthRouter } from './health/health.router';
+import { errorHandler } from './middlewares/error.middleware';
+import { notFoundHandler } from './middlewares/not-found.middleware';
+import { createApiRouter } from './routes';
 
 export interface AppDependencies {
   prisma: PrismaClient;
@@ -16,11 +18,10 @@ export function createApp({ prisma, webOrigins }: AppDependencies): Express {
   app.use(cors({ origin: webOrigins }));
   app.use(express.json({ limit: '1mb' }));
 
-  app.use(`/${API_PREFIX}/health`, createHealthRouter(prisma));
+  app.use(`/${API_PREFIX}`, createApiRouter(prisma));
 
-  app.use((_request, response) => {
-    response.status(404).json({ error: 'Not Found' });
-  });
+  app.use(notFoundHandler);
+  app.use(errorHandler);
 
   return app;
 }

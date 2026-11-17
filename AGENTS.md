@@ -34,8 +34,11 @@ apps/api/
   prisma/schema.prisma        # datasource + generator (no domain models yet)
   prisma.config.ts            # Prisma 7 CLI config
   src/config/env.ts           # env loading + validation
-  src/health/                 # health router, service, database check
-  src/prisma/prisma.ts        # Prisma client factory (pg adapter)
+  src/controllers/            # request/response handlers
+  src/middlewares/            # not-found and error middleware
+  src/models/prisma.model.ts  # Prisma client factory (pg adapter)
+  src/routes/                 # API route composition and health routes
+  src/services/               # business logic and database checks
   src/app.ts                  # Express app: middleware, CORS, routes
   src/main.ts                 # HTTP server + graceful shutdown
   src/generated/prisma/       # generated client (gitignored, never edit)
@@ -101,12 +104,12 @@ Unit tests are mandatory for both backend and frontend changes. A change is not 
 
 - TypeScript strict mode everywhere. No `any` unless unavoidable; prefer explicit types and shared contracts from `@documind/shared`.
 - API code is CommonJS-compatible and built with `tsc`; web code uses the Next.js App Router.
-- Follow the existing feature-folder pattern: `health/health.router.ts`, `health/health.service.ts`. Put HTTP wiring in routers, logic in services, and keep side effects out of routers.
+- Follow the layer-folder pattern: `controllers/`, `services/`, `routes/`, `models/`, and `middlewares/`. Put request/response handling in controllers, logic in services, route wiring in routes, Express middleware in middlewares, and Prisma access in models. Keep side effects out of routes.
 - Web UI follows `design.md`. Use the installed Tailwind/shadcn foundation, semantic CSS tokens, and Lucide icons. Do not add a second token system or component library.
 - Keep pages thin: routing and composition in `app/`, primitives in `components/ui/`, cross-feature components in `components/shared/`, and feature components in `components/<feature>/`.
 - All prototype data and simulated behavior must live in `apps/web/mocks` and carry the exact `TODO: REMOVE MOCK — …` comment. Never import mocks into a production data path.
 - Export named functions and interfaces. Do not use default exports in API or shared code.
-- Database access goes through the Prisma client created in `src/prisma/prisma.ts`. Never instantiate a second client or connect to PostgreSQL directly from routes or the web app.
+- Database access goes through the Prisma client created in `src/models/prisma.model.ts`. Never instantiate a second client or connect to PostgreSQL directly from routes or the web app.
 - Errors returned to clients must not leak internal database or stack details; log them server-side.
 - Keep `@documind/shared` dependency-free. Contracts used by both apps belong there.
 - Use 2-space indentation, single quotes, semicolons, and trailing commas in multi-line literals, matching the current source.

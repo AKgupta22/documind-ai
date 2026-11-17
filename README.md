@@ -156,8 +156,11 @@ documind-ai/
 │   │   ├── prisma.config.ts         # Prisma 7 CLI config (schema, migrations, DATABASE_URL)
 │   │   ├── src/
 │   │   │   ├── config/env.ts        # env loading + validation
-│   │   │   ├── health/              # router + database health check
-│   │   │   ├── prisma/prisma.ts     # Prisma client factory (pg adapter)
+│   │   │   ├── controllers/         # request/response handlers
+│   │   │   ├── middlewares/         # not-found and error middleware
+│   │   │   ├── models/              # Prisma client factory (pg adapter)
+│   │   │   ├── routes/              # API route composition + health routes
+│   │   │   ├── services/            # business logic + database health check
 │   │   │   ├── app.ts               # Express app: middleware, CORS, routes
 │   │   │   ├── main.ts              # HTTP server + graceful shutdown
 │   │   │   └── generated/prisma/    # generated client (gitignored)
