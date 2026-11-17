@@ -2,7 +2,7 @@
 
 Personal AI document intelligence assistant. Users will upload PDFs and TXT files, ask questions about them, and use an AI agent to search, summarize, and extract action items.
 
-**Current scope: Task 002 — UI Wireframe, Authentication & Dummy Components.** This repository contains the monorepo, a navigable Next.js prototype (authentication, app shell, dashboard, knowledge base, chat with agent activity, history, settings), the Express API, PostgreSQL via Docker Compose, Prisma, and a database-aware health endpoint. Authentication, uploads, retrieval, citations, agent executions, and AI responses in the web app are **frontend simulations**. Real uploads, retrieval, embeddings, auth, and AI providers are intentionally **not** implemented yet.
+**Current scope: Task 002 — UI Wireframe, Authentication & Dummy Components.** This repository contains the monorepo, a navigable Next.js prototype (authentication, app shell, dashboard, knowledge base, chat with agent activity, history, settings), the Express API, PostgreSQL via Docker Compose, Prisma, and a database-aware health endpoint. Account signup is wired to the API; login sessions, email verification, uploads, retrieval, citations, agent executions, and AI responses in the web app remain **frontend simulations**. Real login/session handling, email delivery, uploads, retrieval, embeddings, and AI providers are intentionally **not** implemented yet.
 
 ## Architecture
 
@@ -29,7 +29,7 @@ The web app is a complete navigable wireframe. All product data is fixed prototy
 | Route | Purpose |
 | --- | --- |
 | `/login` | Simulated sign-in with client validation |
-| `/register` | Simulated registration and validation |
+| `/register` | API-backed registration with client validation |
 | `/forgot-password` | Neutral reset-request confirmation |
 | `/reset-password` | Mock-token password reset |
 | `/verify-email` | Simulated email verification |
@@ -161,7 +161,8 @@ Created — HTTP `201`:
 - Signup creates a link-style verification token in `email_verifications`, storing only its SHA-256 hash with a 24-hour expiry.
 - Email delivery is intentionally disabled with the provider call commented out in `services/email.service.ts`.
 - `isEmailVerified` remains `false`, and verification is not enforced yet.
-- The web register form still uses the mock auth service; this endpoint is not wired to the UI yet.
+- The web register form calls this endpoint through `services/auth.service.ts` and the shared
+  axios client; login and email verification remain simulated.
 
 ## Commands
 
@@ -221,6 +222,8 @@ documind-ai/
 │       ├── hooks/                   # media query hook
 │       ├── lib/                     # auth session, format, theme, cn()
 │       ├── mocks/                   # centralized prototype datasets
+│       ├── services/                # API-backed feature services (auth)
+│       ├── utils/                   # shared axios client + interceptors
 │       ├── test/                    # Vitest jsdom setup
 │       ├── .env.example
 │       ├── next.config.ts
@@ -266,6 +269,7 @@ plain TypeScript types/constants.
 | `prisma` (dev)                    | CLI for `generate`, `migrate`, `validate`, `studio`                  |
 | `@prisma/adapter-pg`, `pg`        | Prisma 7 requires a driver adapter; these connect to PostgreSQL      |
 | `bcryptjs`                        | Password hashing for the signup flow at bcrypt cost 8                |
+| `axios`                           | Web HTTP client with shared request/response interceptors            |
 | `dotenv`                          | Loads `.env` at API startup and for `prisma.config.ts` CLI commands  |
 | `tsx` (dev)                       | TypeScript execution + watch mode for the API during development     |
 | `typescript`                      | Strict compilation for all packages                                  |
@@ -290,6 +294,9 @@ No AI provider, queue, Redis, or microservice dependencies are installed in this
   `email-verification.prisma` defines `EmailVerification` mapped to `email_verifications`.
   `prisma.config.ts` points at the `prisma/schema` folder. Migrations for both tables live in
   `prisma/migrations`; use `pnpm db:migrate` for new development migrations.
+- Timestamp columns use `@db.Timestamptz(3)`, so PostgreSQL stores the instant in UTC and
+  converts it per connection timezone. The existing `email_verifications.createdAt` and
+  `expiresAt` columns were migrated from `TIMESTAMP(3)` to `TIMESTAMPTZ(3)`.
 
 ## Verifying the foundation
 

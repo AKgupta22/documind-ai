@@ -11,12 +11,12 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { register } from '@/lib/auth/mock-auth-service';
 import {
   validateEmail,
   validatePassword,
   validatePasswordConfirmation,
 } from '@/lib/auth/validation';
+import { signup } from '@/services/auth.service';
 
 interface RegisterErrors {
   name?: string;
@@ -55,20 +55,18 @@ export function RegisterForm() {
     }
 
     setPending(true);
-    // TODO: REMOVE MOCK — Replace simulated registration with the real authentication API.
-    const result = await register({
-      name,
-      email,
-      password,
-      confirmPassword,
-      acceptedTerms,
-    });
+    const result = await signup({ fullname: name, email, password });
     setPending(false);
 
     if (!result.ok) {
       setFormError(result.error);
       if (result.fieldErrors) {
-        setErrors((current) => ({ ...current, ...result.fieldErrors }));
+        setErrors((current) => ({
+          ...current,
+          name: result.fieldErrors?.['fullname'] ?? current.name,
+          email: result.fieldErrors?.['email'] ?? current.email,
+          password: result.fieldErrors?.['password'] ?? current.password,
+        }));
       }
       return;
     }

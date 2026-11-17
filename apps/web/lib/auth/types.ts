@@ -11,14 +11,6 @@ export interface LoginInput {
   remember: boolean;
 }
 
-export interface RegisterInput {
-  name: string;
-  email: string;
-  password: string;
-  confirmPassword: string;
-  acceptedTerms: boolean;
-}
-
 export interface ResetPasswordInput {
   token: string;
   password: string;

@@ -4,11 +4,10 @@
 import type {
   AuthResult,
   LoginInput,
-  RegisterInput,
   ResetPasswordInput,
   SimpleAuthResult,
 } from '@/lib/auth/types';
-import { DEMO_CREDENTIALS, DEMO_USER, MOCK_RESET_TOKEN, createMockUser } from '@/mocks/auth';
+import { DEMO_CREDENTIALS, DEMO_USER, MOCK_RESET_TOKEN } from '@/mocks/auth';
 import { readMockSession } from '@/lib/auth/session-client';
 
 function delay(durationMs: number): Promise<void> {
@@ -33,21 +32,6 @@ export async function login(input: LoginInput): Promise<AuthResult> {
     ok: false,
     error: 'Email or password is incorrect. Use the demo credentials shown below.',
   };
-}
-
-export async function register(input: RegisterInput): Promise<AuthResult> {
-  // TODO: REMOVE MOCK — Replace simulated behaviour with backend integration.
-  await delay(700);
-
-  if (input.email.trim().toLowerCase() === DEMO_CREDENTIALS.email) {
-    return {
-      ok: false,
-      error: 'An account with this email already exists in the prototype.',
-      fieldErrors: { email: 'This email is already registered.' },
-    };
-  }
-
-  return { ok: true, user: createMockUser(input.name, input.email) };
 }
 
 export async function forgotPassword(email: string): Promise<SimpleAuthResult> {

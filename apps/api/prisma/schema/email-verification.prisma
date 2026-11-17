@@ -2,8 +2,8 @@ model EmailVerification {
   id        String   @id @default(uuid()) @db.Text
   userId    String   @db.Text
   tokenHash String   @unique @db.Text
-  expiresAt DateTime
-  createdAt DateTime @default(now())
+  expiresAt DateTime @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])

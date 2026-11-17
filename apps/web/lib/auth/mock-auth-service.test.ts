@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   login,
-  register,
   resetPassword,
   verifyEmail,
 } from '@/lib/auth/mock-auth-service';
@@ -42,23 +41,6 @@ describe('mock auth service', () => {
       ok: false,
       error: expect.stringContaining('incorrect'),
     });
-  });
-
-  it('rejects registration for the existing demo email', async () => {
-    const resultPromise = register({
-      name: 'Demo User',
-      email: 'demo@documind.ai',
-      password: 'Demo@123',
-      confirmPassword: 'Demo@123',
-      acceptedTerms: true,
-    });
-    await vi.advanceTimersByTimeAsync(700);
-
-    const result = await resultPromise;
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.fieldErrors?.email).toBeDefined();
-    }
   });
 
   it('validates the mock reset token', async () => {
