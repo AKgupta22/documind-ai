@@ -2,8 +2,8 @@ import express, { type Express } from 'express';
 import { once } from 'node:events';
 import type { Server } from 'node:http';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { errorHandler } from '../src/middlewares/error.middleware.ts';
-import { notFoundHandler } from '../src/middlewares/not-found.middleware.ts';
+import { errorHandler } from '../../src/middlewares/error.middleware.ts';
+import { notFoundHandler } from '../../src/middlewares/not-found.middleware.ts';
 
 const servers: Server[] = [];
 

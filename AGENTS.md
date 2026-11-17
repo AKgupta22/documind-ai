@@ -31,7 +31,8 @@ apps/web (Next.js, :3000)  ──HTTP/CORS──►  apps/api (Express, :3001)
 
 ```text
 apps/api/
-  prisma/schema.prisma        # datasource + generator (no domain models yet)
+  prisma/schema/schema.prisma # datasource + generator
+  prisma/schema/user.prisma   # User model
   prisma.config.ts            # Prisma 7 CLI config
   src/config/env.ts           # env loading + validation
   src/controllers/            # request/response handlers
@@ -43,6 +44,9 @@ apps/api/
   src/main.ts                 # HTTP server + graceful shutdown
   src/generated/prisma/       # generated client (gitignored, never edit)
   tests/                      # Vitest unit tests (node environment)
+    env/                      # environment configuration tests
+    health/                   # health route + service tests
+    middlewares/              # not-found and error middleware tests
 apps/web/
   app/                        # App Router route groups: (auth), (app)
   components/ui/              # shadcn/ui primitives
@@ -109,6 +113,7 @@ Unit tests are mandatory for both backend and frontend changes. A change is not 
 - Keep pages thin: routing and composition in `app/`, primitives in `components/ui/`, cross-feature components in `components/shared/`, and feature components in `components/<feature>/`.
 - All prototype data and simulated behavior must live in `apps/web/mocks` and carry the exact `TODO: REMOVE MOCK — …` comment. Never import mocks into a production data path.
 - Export named functions and interfaces. Do not use default exports in API or shared code.
+- Keep the Prisma schema multi-file: `prisma/schema/schema.prisma` holds the datasource and generator, and each feature model lives in its own file such as `prisma/schema/user.prisma`.
 - Database access goes through the Prisma client created in `src/models/prisma.model.ts`. Never instantiate a second client or connect to PostgreSQL directly from routes or the web app.
 - Errors returned to clients must not leak internal database or stack details; log them server-side.
 - Keep `@documind/shared` dependency-free. Contracts used by both apps belong there.
