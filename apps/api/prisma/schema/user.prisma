@@ -6,6 +6,7 @@ model User {
   isActive        Boolean @default(true)
   isEmailVerified Boolean @default(false)
   refreshToken    String? @db.Text
+  emailVerifications EmailVerification[]
 
   @@map("users")
 }

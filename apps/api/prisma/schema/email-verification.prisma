@@ -1,0 +1,11 @@
+model EmailVerification {
+  id        String   @id @default(uuid()) @db.Text
+  userId    String   @db.Text
+  tokenHash String   @unique @db.Text
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("email_verifications")
+}

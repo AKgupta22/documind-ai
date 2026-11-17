@@ -33,17 +33,19 @@ apps/web (Next.js, :3000)  ──HTTP/CORS──►  apps/api (Express, :3001)
 apps/api/
   prisma/schema/schema.prisma # datasource + generator
   prisma/schema/user.prisma   # User model
+  prisma/schema/email-verification.prisma # email verification tokens
   prisma.config.ts            # Prisma 7 CLI config
   src/config/env.ts           # env loading + validation
   src/controllers/            # request/response handlers
   src/middlewares/            # not-found and error middleware
   src/models/prisma.model.ts  # Prisma client factory (pg adapter)
-  src/routes/                 # API route composition and health routes
-  src/services/               # business logic and database checks
+  src/routes/                 # API route composition, auth and health routes
+  src/services/               # business logic, auth, email, database checks
   src/app.ts                  # Express app: middleware, CORS, routes
   src/main.ts                 # HTTP server + graceful shutdown
   src/generated/prisma/       # generated client (gitignored, never edit)
   tests/                      # Vitest unit tests (node environment)
+    auth/                     # signup validation, service, and route tests
     env/                      # environment configuration tests
     health/                   # health route + service tests
     middlewares/              # not-found and error middleware tests
@@ -115,6 +117,7 @@ Unit tests are mandatory for both backend and frontend changes. A change is not 
 - Export named functions and interfaces. Do not use default exports in API or shared code.
 - Keep the Prisma schema multi-file: `prisma/schema/schema.prisma` holds the datasource and generator, and each feature model lives in its own file such as `prisma/schema/user.prisma`.
 - Database access goes through the Prisma client created in `src/models/prisma.model.ts`. Never instantiate a second client or connect to PostgreSQL directly from routes or the web app.
+- Hash passwords with `bcryptjs` at cost 8. Never store, log, or return plaintext passwords. Store only verification-token hashes, never raw tokens.
 - Errors returned to clients must not leak internal database or stack details; log them server-side.
 - Keep `@documind/shared` dependency-free. Contracts used by both apps belong there.
 - Use 2-space indentation, single quotes, semicolons, and trailing commas in multi-line literals, matching the current source.
