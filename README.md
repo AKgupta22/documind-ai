@@ -2,7 +2,7 @@
 
 Personal AI document intelligence assistant. Users will upload PDFs and TXT files, ask questions about them, and use an AI agent to search, summarize, and extract action items.
 
-**Current scope: Task 002 — UI Wireframe, Authentication & Dummy Components.** This repository contains the monorepo, a navigable Next.js prototype (authentication, app shell, dashboard, knowledge base, chat with agent activity, history, settings), the Express API, PostgreSQL via Docker Compose, Prisma, and a database-aware health endpoint. Authentication, uploads, retrieval, citations, agent executions, and AI responses in the web app are **frontend simulations**. Real uploads, retrieval, embeddings, auth, and AI providers are intentionally **not** implemented yet.
+**Current scope: Task 002 — UI Wireframe, Authentication & Dummy Components.** This repository contains the monorepo, a navigable Next.js prototype (authentication, app shell, dashboard, knowledge base, chat with agent activity, history, settings), the Express API, PostgreSQL via Docker Compose, Prisma, and a database-aware health endpoint. Account signup is wired to the API; login sessions, email verification, uploads, retrieval, citations, agent executions, and AI responses in the web app remain **frontend simulations**. Real login/session handling, email delivery, uploads, retrieval, embeddings, and AI providers are intentionally **not** implemented yet.
 
 ## Architecture
 
@@ -29,7 +29,7 @@ The web app is a complete navigable wireframe. All product data is fixed prototy
 | Route | Purpose |
 | --- | --- |
 | `/login` | Simulated sign-in with client validation |
-| `/register` | Simulated registration and validation |
+| `/register` | API-backed registration with client validation |
 | `/forgot-password` | Neutral reset-request confirmation |
 | `/reset-password` | Mock-token password reset |
 | `/verify-email` | Simulated email verification |
@@ -130,6 +130,40 @@ Database unreachable — HTTP `503`:
 
 The endpoint deliberately does **not** connect eagerly at boot, so the API can start while the database is down and report the failure instead of crashing. Prisma reconnects on the next successful query. Internal database error details are logged server-side, not returned to clients.
 
+## Signup endpoint
+
+`POST /api/v1/auth/signup` creates a user account.
+
+```json
+{
+  "fullname": "Avery Morgan",
+  "email": "avery@example.com",
+  "password": "Password1"
+}
+```
+
+Created — HTTP `201`:
+
+```json
+{
+  "user": {
+    "id": "b5f8c8d4-...",
+    "fullname": "Avery Morgan",
+    "email": "avery@example.com",
+    "isEmailVerified": false
+  }
+}
+```
+
+- Passwords are hashed with `bcryptjs` at cost 8; plaintext passwords are never stored or returned.
+- Emails are trimmed and lowercased; the unique index prevents duplicates and a race returns HTTP `409`.
+- Invalid input returns HTTP `400` with `fieldErrors`.
+- Signup creates a link-style verification token in `email_verifications`, storing only its SHA-256 hash with a 24-hour expiry.
+- Email delivery is intentionally disabled with the provider call commented out in `services/email.service.ts`.
+- `isEmailVerified` remains `false`, and verification is not enforced yet.
+- The web register form calls this endpoint through `services/auth.service.ts` and the shared
+  axios client; login and email verification remain simulated.
+
 ## Commands
 
 | Command              | Purpose                                                        |
@@ -152,16 +186,26 @@ documind-ai/
 ├── apps/
 │   ├── api/
 │   │   ├── prisma/
-│   │   │   └── schema.prisma        # datasource + client generator (no domain models yet)
+│   │   │   └── schema/
+│   │   │       ├── schema.prisma    # datasource + generator
+│   │   │       ├── user.prisma      # User model
+│   │   │       └── email-verification.prisma # verification tokens
 │   │   ├── prisma.config.ts         # Prisma 7 CLI config (schema, migrations, DATABASE_URL)
 │   │   ├── src/
 │   │   │   ├── config/env.ts        # env loading + validation
-│   │   │   ├── health/              # router + database health check
-│   │   │   ├── prisma/prisma.ts     # Prisma client factory (pg adapter)
+│   │   │   ├── controllers/         # request/response handlers
+│   │   │   ├── middlewares/         # not-found and error middleware
+│   │   │   ├── models/              # Prisma client factory (pg adapter)
+│   │   │   ├── routes/              # API route composition, auth + health
+│   │   │   ├── services/            # business logic, auth, email, health
 │   │   │   ├── app.ts               # Express app: middleware, CORS, routes
 │   │   │   ├── main.ts              # HTTP server + graceful shutdown
 │   │   │   └── generated/prisma/    # generated client (gitignored)
-│   │   ├── tests/                   # Vitest unit tests (Node)
+│   │   ├── tests/                   # Vitest unit tests (Node), grouped by feature
+│   │   │   ├── auth/
+│   │   │   ├── env/
+│   │   │   ├── health/
+│   │   │   └── middlewares/
 │   │   ├── .env.example
 │   │   └── tsconfig.json
 │   └── web/
@@ -178,6 +222,8 @@ documind-ai/
 │       ├── hooks/                   # media query hook
 │       ├── lib/                     # auth session, format, theme, cn()
 │       ├── mocks/                   # centralized prototype datasets
+│       ├── services/                # API-backed feature services (auth)
+│       ├── utils/                   # shared axios client + interceptors
 │       ├── test/                    # Vitest jsdom setup
 │       ├── .env.example
 │       ├── next.config.ts
@@ -222,6 +268,8 @@ plain TypeScript types/constants.
 | `@prisma/client`                  | Generated, type-safe database client                                 |
 | `prisma` (dev)                    | CLI for `generate`, `migrate`, `validate`, `studio`                  |
 | `@prisma/adapter-pg`, `pg`        | Prisma 7 requires a driver adapter; these connect to PostgreSQL      |
+| `bcryptjs`                        | Password hashing for the signup flow at bcrypt cost 8                |
+| `axios`                           | Web HTTP client with shared request/response interceptors            |
 | `dotenv`                          | Loads `.env` at API startup and for `prisma.config.ts` CLI commands  |
 | `tsx` (dev)                       | TypeScript execution + watch mode for the API during development     |
 | `typescript`                      | Strict compilation for all packages                                  |
@@ -241,8 +289,18 @@ No AI provider, queue, Redis, or microservice dependencies are installed in this
 - The generated client is written to `apps/api/src/generated/prisma` and is gitignored.
   It is regenerated by `pnpm install`-time commands, `pnpm db:generate`, and before
   every API build/dev run.
-- `schema.prisma` intentionally has **no models yet**. Domain models belong to later tasks.
-  `pnpm db:migrate` is wired up for when the first model is added.
+- The Prisma schema is multi-file: `prisma/schema/schema.prisma` holds the datasource and
+  generator, `user.prisma` defines the `User` model mapped to `users`, and
+  `email-verification.prisma` defines `EmailVerification` mapped to `email_verifications`.
+  `prisma.config.ts` points at the `prisma/schema` folder. Migrations for both tables live in
+  `prisma/migrations`; use `pnpm db:migrate` for new development migrations.
+- Timestamp columns use `@db.Timestamptz(3)`, so PostgreSQL stores the instant in UTC and
+  converts it per connection timezone. The existing `email_verifications.createdAt` and
+  `expiresAt` columns were migrated from `TIMESTAMP(3)` to `TIMESTAMPTZ(3)`.
+- `users` now has `created_at` and `updated_at` (`createdAt`/`updatedAt` in Prisma, with
+  `@updatedAt` maintained by Prisma). The migration backfilled existing users from their
+  earliest email verification token's `createdAt`, falling back to the migration time when no
+  token existed.
 
 ## Verifying the foundation
 

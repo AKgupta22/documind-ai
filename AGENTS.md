@@ -8,7 +8,7 @@ DocuMind AI is a personal AI document intelligence assistant. Users upload PDF a
 
 **Current scope: Task 002 — UI Wireframe, Authentication & Dummy Components.** The repository contains the monorepo, the Next.js App Router web app with a full navigable prototype (authentication screens, app shell, dashboard, knowledge base, chat with agent activity, history, settings), the Express API, PostgreSQL via Docker Compose, Prisma, and a database-aware health endpoint.
 
-The web authentication, uploads, AI responses, citations, and agent executions are **frontend simulations**. Do not present them as real functionality. Uploads, retrieval, embeddings, real authentication, and AI providers remain **not implemented**. Do not add them unless a task explicitly asks.
+Account signup calls the real API. Web login sessions, email verification, uploads, AI responses, citations, and agent executions are **frontend simulations**. Do not present them as real functionality. Login/session handling, email delivery, uploads, retrieval, embeddings, and AI providers remain **not implemented**. Do not add them unless a task explicitly asks.
 
 ## Architecture
 
@@ -31,15 +31,24 @@ apps/web (Next.js, :3000)  ──HTTP/CORS──►  apps/api (Express, :3001)
 
 ```text
 apps/api/
-  prisma/schema.prisma        # datasource + generator (no domain models yet)
+  prisma/schema/schema.prisma # datasource + generator
+  prisma/schema/user.prisma   # User model
+  prisma/schema/email-verification.prisma # email verification tokens
   prisma.config.ts            # Prisma 7 CLI config
   src/config/env.ts           # env loading + validation
-  src/health/                 # health router, service, database check
-  src/prisma/prisma.ts        # Prisma client factory (pg adapter)
+  src/controllers/            # request/response handlers
+  src/middlewares/            # not-found and error middleware
+  src/models/prisma.model.ts  # Prisma client factory (pg adapter)
+  src/routes/                 # API route composition, auth and health routes
+  src/services/               # business logic, auth, email, database checks
   src/app.ts                  # Express app: middleware, CORS, routes
   src/main.ts                 # HTTP server + graceful shutdown
   src/generated/prisma/       # generated client (gitignored, never edit)
   tests/                      # Vitest unit tests (node environment)
+    auth/                     # signup validation, service, and route tests
+    env/                      # environment configuration tests
+    health/                   # health route + service tests
+    middlewares/              # not-found and error middleware tests
 apps/web/
   app/                        # App Router route groups: (auth), (app)
   components/ui/              # shadcn/ui primitives
@@ -53,6 +62,8 @@ apps/web/
   hooks/                      # reusable client hooks
   lib/                        # auth mocks, formatting, theme, cn()
   mocks/                      # centralized prototype datasets
+  services/                   # API-backed feature services
+  utils/                      # shared axios client + interceptors
   test/                       # Vitest setup (jsdom)
 packages/shared/src/index.ts  # API_PREFIX, HEALTH_PATH, HealthResponse
 ```
@@ -101,12 +112,16 @@ Unit tests are mandatory for both backend and frontend changes. A change is not 
 
 - TypeScript strict mode everywhere. No `any` unless unavoidable; prefer explicit types and shared contracts from `@documind/shared`.
 - API code is CommonJS-compatible and built with `tsc`; web code uses the Next.js App Router.
-- Follow the existing feature-folder pattern: `health/health.router.ts`, `health/health.service.ts`. Put HTTP wiring in routers, logic in services, and keep side effects out of routers.
+- Follow the layer-folder pattern: `controllers/`, `services/`, `routes/`, `models/`, and `middlewares/`. Put request/response handling in controllers, logic in services, route wiring in routes, Express middleware in middlewares, and Prisma access in models. Keep side effects out of routes.
 - Web UI follows `design.md`. Use the installed Tailwind/shadcn foundation, semantic CSS tokens, and Lucide icons. Do not add a second token system or component library.
 - Keep pages thin: routing and composition in `app/`, primitives in `components/ui/`, cross-feature components in `components/shared/`, and feature components in `components/<feature>/`.
 - All prototype data and simulated behavior must live in `apps/web/mocks` and carry the exact `TODO: REMOVE MOCK — …` comment. Never import mocks into a production data path.
+- New web API calls go through `apps/web/services` and the shared axios instance in `apps/web/utils/api-client.ts`; keep interceptors centralized there instead of adding axios instances per feature.
 - Export named functions and interfaces. Do not use default exports in API or shared code.
-- Database access goes through the Prisma client created in `src/prisma/prisma.ts`. Never instantiate a second client or connect to PostgreSQL directly from routes or the web app.
+- Keep the Prisma schema multi-file: `prisma/schema/schema.prisma` holds the datasource and generator, and each feature model lives in its own file such as `prisma/schema/user.prisma`.
+- Store timestamps as `DateTime @db.Timestamptz(3)` so PostgreSQL keeps the instant in UTC and converts it to the connection timezone instead of storing a naive local time.
+- Database access goes through the Prisma client created in `src/models/prisma.model.ts`. Never instantiate a second client or connect to PostgreSQL directly from routes or the web app.
+- Hash passwords with `bcryptjs` at cost 8. Never store, log, or return plaintext passwords. Store only verification-token hashes, never raw tokens.
 - Errors returned to clients must not leak internal database or stack details; log them server-side.
 - Keep `@documind/shared` dependency-free. Contracts used by both apps belong there.
 - Use 2-space indentation, single quotes, semicolons, and trailing commas in multi-line literals, matching the current source.

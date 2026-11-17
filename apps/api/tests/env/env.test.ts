@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { loadConfig } from '../src/config/env.ts';
+import { loadConfig } from '../../src/config/env.ts';
 
 describe('loadConfig', () => {
   afterEach(() => {

@@ -1,7 +1,7 @@
 import { API_PREFIX } from '@documind/shared';
 import { createApp } from './app';
 import { loadConfig } from './config/env';
-import { createPrismaClient } from './prisma/prisma';
+import { createPrismaClient } from './models/prisma.model';
 
 async function bootstrap(): Promise<void> {
   const config = loadConfig();

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { getHealth } from '../src/health/health.service.ts';
-import type { AppDependencies } from '../src/app.ts';
+import { getHealth } from '../../src/services/health.service.ts';
+import type { AppDependencies } from '../../src/app.ts';
 
 type PrismaStub = AppDependencies['prisma'];
 

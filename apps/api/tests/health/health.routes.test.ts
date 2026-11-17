@@ -2,8 +2,8 @@ import type { Express } from 'express';
 import type { Server } from 'node:http';
 import { once } from 'node:events';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createApp } from '../src/app.ts';
-import type { AppDependencies } from '../src/app.ts';
+import { createApp } from '../../src/app.ts';
+import type { AppDependencies } from '../../src/app.ts';
 
 type PrismaStub = AppDependencies['prisma'];
 

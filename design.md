@@ -972,10 +972,12 @@ Use the same wording and the em dash exactly. Do not paraphrase, translate, or a
 - `mocks/agent.ts` — 3 tool executions.
 - `mocks/dashboard.ts` — derived stats and selectors.
 
-Unit tests under `apps/web` cover validation, the mock auth service, cookie serialization,
-formatting, theme behavior, document filtering, chat simulation, and agent disclosures.
-Backend tests under `apps/api/tests` cover environment validation, the health service, and health
-route responses with a stubbed Prisma client.
+Unit tests under `apps/web` cover validation, the API signup service and axios client, the
+remaining mock auth service, cookie serialization, formatting, theme behavior, document filtering,
+chat simulation, and agent disclosures.
+Backend tests under `apps/api/tests` cover environment validation, signup validation, the signup
+service and route responses, the health service, and health route responses with a stubbed Prisma
+client.
 
 ### Lifecycle
 
