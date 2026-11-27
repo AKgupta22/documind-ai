@@ -1,6 +1,7 @@
 import type {
   AuthErrorResponse,
   LoginResponse,
+  ProfileResponse,
   SignupErrorResponse,
   SignupResponse,
 } from '@documind/shared';
@@ -14,6 +15,7 @@ import {
 } from '../config/auth';
 import type { PrismaClient } from '../generated/prisma/client';
 import { signupUser, validateSignupRequest } from '../services/auth.service';
+import type { CacheStore } from '../services/cache.service';
 import {
   clearAuthCookies,
   setAuthCookies,
@@ -26,6 +28,10 @@ import {
   validateLoginRequest,
   type LoginFailureReason,
 } from '../services/login.service';
+import {
+  updateProfile,
+  validateUpdateProfileRequest,
+} from '../services/profile.service';
 
 export function createSignupController(prisma: PrismaClient): RequestHandler {
   return async (request, response) => {
@@ -102,6 +108,8 @@ export function createLoginController(
 export function createMeController(
   prisma: PrismaClient,
   auth: AuthConfig,
+  cache: CacheStore,
+  profileCacheTtlSeconds: number,
 ): RequestHandler {
   return async (request, response) => {
     const accessToken = readCookie(request, ACCESS_TOKEN_COOKIE);
@@ -111,7 +119,13 @@ export function createMeController(
       return;
     }
 
-    const result = await getSessionUser(prisma, accessToken, auth);
+    const result = await getSessionUser(
+      prisma,
+      cache,
+      accessToken,
+      auth,
+      profileCacheTtlSeconds,
+    );
 
     if (!result.ok) {
       response.status(401).json({ error: 'Not authenticated.' });
@@ -119,6 +133,70 @@ export function createMeController(
     }
 
     const body: LoginResponse = { user: result.user };
+
+    response.status(200).json(body);
+  };
+}
+
+export function createUpdateMeController(
+  prisma: PrismaClient,
+  auth: AuthConfig,
+  cache: CacheStore,
+  profileCacheTtlSeconds: number,
+): RequestHandler {
+  return async (request, response) => {
+    const accessToken = readCookie(request, ACCESS_TOKEN_COOKIE);
+
+    if (accessToken === undefined) {
+      response.status(401).json({ error: 'Not authenticated.' });
+      return;
+    }
+
+    const session = await getSessionUser(
+      prisma,
+      cache,
+      accessToken,
+      auth,
+      profileCacheTtlSeconds,
+    );
+
+    if (!session.ok) {
+      response.status(401).json({ error: 'Not authenticated.' });
+      return;
+    }
+
+    const validation = validateUpdateProfileRequest(request.body);
+
+    if (!validation.ok) {
+      const body: AuthErrorResponse = {
+        error: 'Validation failed',
+        fieldErrors: validation.fieldErrors,
+      };
+
+      response.status(400).json(body);
+      return;
+    }
+
+    const user = await updateProfile(
+      prisma,
+      cache,
+      session.user.id,
+      validation.data,
+    );
+
+    if (user === null) {
+      response.status(401).json({ error: 'Not authenticated.' });
+      return;
+    }
+
+    const body: ProfileResponse = {
+      user: {
+        id: user.id,
+        fullname: user.fullname,
+        email: user.email,
+        isEmailVerified: user.isEmailVerified,
+      },
+    };
 
     response.status(200).json(body);
   };

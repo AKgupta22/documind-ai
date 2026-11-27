@@ -8,7 +8,7 @@ DocuMind AI is a personal AI document intelligence assistant. Users upload PDF a
 
 **Current scope: Task 002 — UI Wireframe, Authentication & Dummy Components.** The repository contains the monorepo, the Next.js App Router web app with a full navigable prototype (authentication screens, app shell, dashboard, knowledge base, chat with agent activity, history, settings), the Express API, PostgreSQL via Docker Compose, Prisma, and a database-aware health endpoint.
 
-Account signup calls the real API, and the web login, session hydration, refresh, and logout flows use cookie-based API endpoints with 15-minute access tokens and 30-minute refresh tokens. Email verification, uploads, AI responses, citations, and agent executions remain **frontend simulations**. Real email delivery, uploads, retrieval, embeddings, and AI providers remain **not implemented**. Do not add them unless a task explicitly asks.
+Account signup calls the real API, and the web login, session hydration, refresh, and logout flows use cookie-based API endpoints with 15-minute access tokens and 30-minute refresh tokens. `GET /auth/me` is cached in Redis and `PATCH /auth/me` invalidates that cache. Email verification, uploads, AI responses, citations, and agent executions remain **frontend simulations**. Real email delivery, uploads, retrieval, embeddings, and AI providers remain **not implemented**. Do not add them unless a task explicitly asks.
 
 ## Architecture
 
@@ -18,13 +18,15 @@ Browser
   ▼
 apps/web (Next.js, :3000)  ──HTTP/CORS──►  apps/api (Express, :3001)
                                               │
-                                              │ Prisma 7 + @prisma/adapter-pg
-                                              ▼
-                                        PostgreSQL (:5432, Docker)
+                         ┌────────────────────┴────────────────────┐
+                         │ Prisma 7 + @prisma/adapter-pg           │ Redis client
+                         ▼                                         ▼
+                   PostgreSQL (:5432, Docker)              Redis (:6379, Docker)
 ```
 
 - `apps/web` owns rendering and browser-side interaction only. It never talks to the database.
 - `apps/api` owns HTTP endpoints, configuration, and all database access.
+- `apps/api` uses Redis as an optional cache-aside store for profile reads. If Redis is unavailable, reads fall back to PostgreSQL and the API still starts.
 - `packages/shared` holds TypeScript contracts (types and constants) shared by both apps. It has no runtime dependencies.
 
 ## Repository layout
@@ -37,16 +39,19 @@ apps/api/
   prisma.config.ts            # Prisma 7 CLI config
   src/config/env.ts           # env loading + validation
   src/config/auth.ts          # token lifetimes, cookie names, auth config types
+  src/config/cache.ts         # Redis URL + profile cache TTL
   src/controllers/            # request/response handlers
   src/middlewares/            # not-found and error middleware
   src/models/prisma.model.ts  # Prisma client factory (pg adapter)
+  src/models/redis.model.ts   # Redis client factory
   src/routes/                 # API route composition, auth and health routes
-  src/services/               # business logic: auth, login, tokens, cookies, email, database checks
+  src/services/               # business logic: auth, login, tokens, cookies, email, cache, profile, database checks
   src/app.ts                  # Express app: middleware, CORS, cookies, routes
   src/main.ts                 # HTTP server + graceful shutdown
   src/generated/prisma/       # generated client (gitignored, never edit)
   tests/                      # Vitest unit tests (node environment)
-    auth/                     # signup/login validation, service, and route tests
+    auth/                     # signup/login/profile validation, service, and route tests
+    cache/                    # Redis cache store tests
     env/                      # environment configuration tests
     health/                   # health route + service tests
     middlewares/              # not-found and error middleware tests
@@ -109,7 +114,8 @@ Unit tests are mandatory for both backend and frontend changes. A change is not 
 - `WEB_ORIGIN` must exactly match the web origin (scheme + host + port, no trailing slash).
 - `JWT_SALT` is required by the API and must be a long random value that differs per environment.
 - Auth cookies are configured with `COOKIE_DOMAIN` (optional shared parent domain), `COOKIE_SECURE` (defaults to `true` when `NODE_ENV=production`), and `COOKIE_SAME_SITE` (`lax`, `strict`, or `none`; `none` forces `Secure`).
-- The API must start even when PostgreSQL is down; the health endpoint reports the failure instead of crashing.
+- `REDIS_URL` enables the profile cache. Leave it empty to disable caching. `PROFILE_CACHE_TTL_SECONDS` defaults to `300`.
+- The API must start even when PostgreSQL or Redis is down; the health endpoint reports database failures instead of crashing, and cache failures fall back to PostgreSQL.
 
 ## Conventions
 
@@ -125,6 +131,8 @@ Unit tests are mandatory for both backend and frontend changes. A change is not 
 - Keep the Prisma schema multi-file: `prisma/schema/schema.prisma` holds the datasource and generator, and each feature model lives in its own file such as `prisma/schema/user.prisma`.
 - Store timestamps as `DateTime @db.Timestamptz(3)` so PostgreSQL keeps the instant in UTC and converts it to the connection timezone instead of storing a naive local time.
 - Database access goes through the Prisma client created in `src/models/prisma.model.ts`. Never instantiate a second client or connect to PostgreSQL directly from routes or the web app.
+- Profile reads use cache-aside: read `profile:<userId>` from the injected `CacheStore`, fall back to PostgreSQL on a miss, then cache the result. Writes update PostgreSQL first and delete the key so the next read repopulates it. Cache failures must never fail the request.
+- Redis access goes through the client created in `src/models/redis.model.ts` and the `CacheStore` abstraction in `src/services/cache.service.ts`. Never import the Redis client into controllers, routes, or the web app.
 - Hash passwords with `bcryptjs` at cost 8. Never store, log, or return plaintext passwords. Store only verification-token and refresh-token hashes, never raw tokens.
 - Auth tokens travel only in `httpOnly` cookies. Never return access or refresh tokens in a JSON body, and never read them from browser storage. The web client relies on `withCredentials` and the centralized axios interceptor in `apps/web/utils/api-client.ts`.
 - Errors returned to clients must not leak internal database or stack details; log them server-side.
@@ -135,7 +143,7 @@ Unit tests are mandatory for both backend and frontend changes. A change is not 
 
 ## Change guardrails
 
-- Stay within the requested scope. Do not introduce real uploads, retrieval, AI providers, queues, Redis, authentication backends, or new services unless the task explicitly requires them. Frontend simulations stay marked as simulations.
+- Stay within the requested scope. Do not introduce real uploads, retrieval, AI providers, queues, authentication backends, or new services unless the task explicitly requires them. The existing Redis profile cache is the only cache in scope. Frontend simulations stay marked as simulations.
 - Do not add dependencies without a concrete need; prefer the existing stack.
 - Do not change ports, API prefix (`/api/v1`), health response shape, or environment variable names without updating the README and both apps.
 - Do not commit or push unless explicitly asked.
@@ -149,6 +157,7 @@ pnpm typecheck
 pnpm build
 docker compose up -d
 curl -i http://localhost:3001/api/v1/health   # expect 200 + "database":{"status":"up"}
+docker compose exec redis redis-cli ping      # expect PONG
 ```
 
 Frontend route smoke checks (with the web dev server running) should cover `/login`, `/dashboard`, `/documents`, `/chat`, `/chat/conv-1`, `/history`, and `/settings`. Sign in with a verified account from the API database; newly signed-up accounts remain blocked until email verification is implemented.

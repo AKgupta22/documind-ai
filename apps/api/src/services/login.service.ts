@@ -3,6 +3,8 @@ import { compare } from 'bcryptjs';
 import { z } from 'zod';
 import type { AuthConfig } from '../config/auth';
 import type { PrismaClient } from '../generated/prisma/client';
+import type { CacheStore } from './cache.service';
+import { getProfile } from './profile.service';
 import {
   hashRefreshToken,
   issueTokenPair,
@@ -63,8 +65,10 @@ export function validateLoginRequest(body: unknown): LoginValidationResult {
 
 export async function getSessionUser(
   prisma: PrismaClient,
+  cache: CacheStore,
   accessToken: string,
   auth: AuthConfig,
+  profileCacheTtlSeconds: number,
 ): Promise<SessionResult> {
   const payload = verifyToken(accessToken, auth.jwtSalt, 'access');
 
@@ -72,16 +76,12 @@ export async function getSessionUser(
     return { ok: false };
   }
 
-  const user = await prisma.user.findUnique({
-    where: { id: payload.sub },
-    select: {
-      id: true,
-      fullname: true,
-      email: true,
-      isActive: true,
-      isEmailVerified: true,
-    },
-  });
+  const user = await getProfile(
+    prisma,
+    cache,
+    payload.sub,
+    profileCacheTtlSeconds,
+  );
 
   if (user === null || !user.isActive || !user.isEmailVerified) {
     return { ok: false };

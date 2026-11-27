@@ -7,6 +7,8 @@ describe('loadConfig', () => {
     vi.stubEnv('COOKIE_DOMAIN', undefined);
     vi.stubEnv('COOKIE_SECURE', undefined);
     vi.stubEnv('COOKIE_SAME_SITE', undefined);
+    vi.stubEnv('REDIS_URL', undefined);
+    vi.stubEnv('PROFILE_CACHE_TTL_SECONDS', undefined);
     vi.stubEnv('NODE_ENV', 'test');
   });
 
@@ -25,6 +27,28 @@ describe('loadConfig', () => {
     expect(config.webOrigins).toEqual(['http://localhost:3000']);
     expect(config.jwtSalt).toBe('test-jwt-salt');
     expect(config.cookie).toEqual({ secure: false, sameSite: 'lax' });
+    expect(config.cache).toEqual({ profileTtlSeconds: 300 });
+  });
+
+  it('reads the Redis URL and profile cache TTL', () => {
+    vi.stubEnv('DATABASE_URL', 'postgresql://localhost:5432/documind');
+    vi.stubEnv('REDIS_URL', 'redis://localhost:6379');
+    vi.stubEnv('PROFILE_CACHE_TTL_SECONDS', '60');
+
+    const config = loadConfig();
+    expect(config.cache).toEqual({
+      url: 'redis://localhost:6379',
+      profileTtlSeconds: 60,
+    });
+  });
+
+  it('rejects an invalid profile cache TTL', () => {
+    vi.stubEnv('DATABASE_URL', 'postgresql://localhost:5432/documind');
+    vi.stubEnv('PROFILE_CACHE_TTL_SECONDS', '0');
+
+    expect(() => loadConfig()).toThrow(
+      'Invalid PROFILE_CACHE_TTL_SECONDS value: 0',
+    );
   });
 
   it('parses multiple comma-separated origins', () => {

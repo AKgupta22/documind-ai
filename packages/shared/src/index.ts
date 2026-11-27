@@ -52,6 +52,14 @@ export interface LoginResponse {
   user: LoginUser;
 }
 
+export interface UpdateProfileRequest {
+  fullname: string;
+}
+
+export interface ProfileResponse {
+  user: LoginUser;
+}
+
 export interface AuthErrorResponse {
   error: string;
   fieldErrors?: Record<string, string>;

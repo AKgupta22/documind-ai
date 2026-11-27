@@ -4,11 +4,16 @@ import type {
   CookieConfig,
   CookieSameSite,
 } from './auth';
+import {
+  DEFAULT_PROFILE_CACHE_TTL_SECONDS,
+  type CacheConfig,
+} from './cache';
 
 export interface AppConfig extends AuthConfig {
   port: number;
   databaseUrl: string;
   webOrigins: string[];
+  cache: CacheConfig;
 }
 
 function readRequired(name: string): string {
@@ -35,6 +40,22 @@ function readPort(): number {
   }
 
   return port;
+}
+
+function readPositiveInteger(name: string, fallback: number): number {
+  const raw = readOptional(name);
+
+  if (raw === undefined) {
+    return fallback;
+  }
+
+  const value = Number(raw);
+
+  if (!Number.isInteger(value) || value <= 0) {
+    throw new Error(`Invalid ${name} value: ${raw}`);
+  }
+
+  return value;
 }
 
 function readBoolean(name: string, fallback: boolean): boolean {
@@ -85,11 +106,20 @@ export function loadConfig(): AppConfig {
     .map((origin) => origin.trim())
     .filter((origin) => origin.length > 0);
 
+  const redisUrl = readOptional('REDIS_URL');
+
   return {
     port: readPort(),
     databaseUrl: readRequired('DATABASE_URL'),
     webOrigins,
     jwtSalt: readRequired('JWT_SALT'),
     cookie: readCookieConfig(),
+    cache: {
+      profileTtlSeconds: readPositiveInteger(
+        'PROFILE_CACHE_TTL_SECONDS',
+        DEFAULT_PROFILE_CACHE_TTL_SECONDS,
+      ),
+      ...(redisUrl === undefined ? {} : { url: redisUrl }),
+    },
   };
 }
