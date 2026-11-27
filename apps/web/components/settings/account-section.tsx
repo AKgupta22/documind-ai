@@ -13,7 +13,6 @@ export function AccountSection() {
 
   async function handleSignOut() {
     setPending(true);
-    // TODO: REMOVE MOCK — Replace simulated logout with backend integration.
     await signOut();
     router.replace('/login');
     router.refresh();
@@ -22,7 +21,7 @@ export function AccountSection() {
   return (
     <div className="flex max-w-lg flex-col gap-3">
       <p className="text-sm text-foreground-secondary">
-        Signing out clears the mock session cookie and returns you to the login screen.
+        Signing out clears your session cookies and returns you to the login screen.
       </p>
       <Button
         type="button"

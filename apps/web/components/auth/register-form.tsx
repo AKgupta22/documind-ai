@@ -71,7 +71,7 @@ export function RegisterForm() {
       return;
     }
 
-    const params = new URLSearchParams({ email: result.user.email, name: result.user.name });
+    const params = new URLSearchParams({ email: result.user.email });
     router.push(`/verify-email?${params.toString()}`);
   }
 

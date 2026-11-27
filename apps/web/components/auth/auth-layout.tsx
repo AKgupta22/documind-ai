@@ -16,7 +16,7 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
       </main>
 
       <footer className="px-4 pb-6 text-center text-xs text-foreground-muted">
-        Frontend prototype. Authentication, email, uploads, and AI responses are simulated.
+        Frontend prototype. Email verification, uploads, and AI responses are simulated.
       </footer>
     </div>
   );

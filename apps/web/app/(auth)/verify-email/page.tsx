@@ -9,18 +9,17 @@ export const metadata: Metadata = {
 export default async function VerifyEmailPage({
   searchParams,
 }: {
-  searchParams: Promise<{ email?: string; name?: string }>;
+  searchParams: Promise<{ email?: string }>;
 }) {
   const params = await searchParams;
   const email = params.email ?? 'you@example.com';
-  const name = params.name ?? 'DocuMind user';
 
   return (
     <AuthCard
       title="Verify your email"
       description="Check your inbox to finish setting up your account."
     >
-      <VerificationMessage email={email} name={name} />
+      <VerificationMessage email={email} />
     </AuthCard>
   );
 }

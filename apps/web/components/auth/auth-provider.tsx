@@ -1,14 +1,20 @@
 'use client';
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 import type { AuthUser } from '@/lib/auth/types';
-import { clearMockSession, readMockSession, setMockSession } from '@/lib/auth/session-client';
-import { logout as simulateLogout } from '@/lib/auth/mock-auth-service';
+import { getCurrentUser, logout } from '@/services/auth.service';
 
 interface AuthContextValue {
   user: AuthUser | null;
   isReady: boolean;
-  signIn: (user: AuthUser, remember: boolean) => void;
+  signIn: (user: AuthUser) => void;
   signOut: () => Promise<void>;
   updateUser: (user: AuthUser) => void;
 }
@@ -20,26 +26,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    setUser(readMockSession());
-    setIsReady(true);
+    let active = true;
+
+    void getCurrentUser()
+      .then((currentUser) => {
+        if (active) {
+          setUser(currentUser);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setUser(null);
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setIsReady(true);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
   }, []);
 
-  const signIn = useCallback((nextUser: AuthUser, remember: boolean) => {
-    // TODO: REMOVE MOCK — Replace simulated session persistence with backend integration.
-    setMockSession(nextUser, remember);
+  const signIn = useCallback((nextUser: AuthUser) => {
     setUser(nextUser);
   }, []);
 
   const signOut = useCallback(async () => {
-    // TODO: REMOVE MOCK — Replace simulated logout with backend integration.
-    await simulateLogout();
-    clearMockSession();
+    await logout().catch(() => undefined);
     setUser(null);
   }, []);
 
   const updateUser = useCallback((nextUser: AuthUser) => {
-    // TODO: REMOVE MOCK — Replace simulated profile persistence with backend integration.
-    setMockSession(nextUser, true);
     setUser(nextUser);
   }, []);
 

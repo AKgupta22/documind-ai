@@ -53,8 +53,49 @@ export type RefreshResult =
   | { ok: true; user: LoginUser; tokens: TokenPair }
   | { ok: false; reason: LoginFailureReason | 'invalid-refresh-token' };
 
+export type SessionResult =
+  | { ok: true; user: LoginUser }
+  | { ok: false };
+
 export function validateLoginRequest(body: unknown): LoginValidationResult {
   return validateWithSchema(loginSchema, body);
+}
+
+export async function getSessionUser(
+  prisma: PrismaClient,
+  accessToken: string,
+  auth: AuthConfig,
+): Promise<SessionResult> {
+  const payload = verifyToken(accessToken, auth.jwtSalt, 'access');
+
+  if (payload === null) {
+    return { ok: false };
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: payload.sub },
+    select: {
+      id: true,
+      fullname: true,
+      email: true,
+      isActive: true,
+      isEmailVerified: true,
+    },
+  });
+
+  if (user === null || !user.isActive || !user.isEmailVerified) {
+    return { ok: false };
+  }
+
+  return {
+    ok: true,
+    user: {
+      id: user.id,
+      fullname: user.fullname,
+      email: user.email,
+      isEmailVerified: user.isEmailVerified,
+    },
+  };
 }
 
 export async function loginUser(

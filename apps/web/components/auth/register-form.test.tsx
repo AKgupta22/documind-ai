@@ -75,7 +75,7 @@ describe('RegisterForm', () => {
       });
     });
     expect(routerMocks.push).toHaveBeenCalledWith(
-      '/verify-email?email=avery%40example.com&name=Avery+Morgan',
+      '/verify-email?email=avery%40example.com',
     );
   });
 

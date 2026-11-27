@@ -2,23 +2,16 @@
 
 import { Loader2, MailCheck } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { useAuth } from '@/components/auth/auth-provider';
 import { StatusMessage } from '@/components/shared/status-message';
 import { Button } from '@/components/ui/button';
 import { verifyEmail } from '@/lib/auth/mock-auth-service';
-import { createMockUser } from '@/mocks/auth';
 
 interface VerificationMessageProps {
   email: string;
-  name: string;
 }
 
-export function VerificationMessage({ email, name }: VerificationMessageProps) {
-  const router = useRouter();
-  const { signIn } = useAuth();
-  const [pending, setPending] = useState(false);
+export function VerificationMessage({ email }: VerificationMessageProps) {
   const [resendState, setResendState] = useState<'idle' | 'sending' | 'sent'>('idle');
 
   async function handleResend() {
@@ -26,14 +19,6 @@ export function VerificationMessage({ email, name }: VerificationMessageProps) {
     // TODO: REMOVE MOCK — Replace simulated verification email with backend integration.
     await verifyEmail();
     setResendState('sent');
-  }
-
-  function handleContinue() {
-    // TODO: REMOVE MOCK — Replace simulated verification with real authentication.
-    const user = createMockUser(name, email);
-    signIn(user, false);
-    router.replace('/dashboard');
-    router.refresh();
   }
 
   return (
@@ -45,7 +30,7 @@ export function VerificationMessage({ email, name }: VerificationMessageProps) {
         <p className="text-sm text-foreground-secondary">
           Verification instructions would be sent to{' '}
           <span className="font-medium text-foreground">{email}</span>. This prototype does
-          not send email and has not verified the address.
+          not send email, so the address stays unverified and sign-in remains blocked.
         </p>
       </div>
 
@@ -54,7 +39,7 @@ export function VerificationMessage({ email, name }: VerificationMessageProps) {
         <ol className="mt-1 list-decimal space-y-1 pl-4">
           <li>Check the inbox for a verification message.</li>
           <li>Open the link in the message.</li>
-          <li>Return here and continue to the dashboard.</li>
+          <li>Return here and sign in with your new account.</li>
         </ol>
       </div>
 
@@ -66,9 +51,6 @@ export function VerificationMessage({ email, name }: VerificationMessageProps) {
       ) : null}
 
       <div className="flex flex-col gap-2">
-        <Button type="button" onClick={handleContinue}>
-          Continue to dashboard
-        </Button>
         <Button
           type="button"
           variant="secondary"

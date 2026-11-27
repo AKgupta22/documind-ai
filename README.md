@@ -2,7 +2,7 @@
 
 Personal AI document intelligence assistant. Users will upload PDFs and TXT files, ask questions about them, and use an AI agent to search, summarize, and extract action items.
 
-**Current scope: Task 002 — UI Wireframe, Authentication & Dummy Components.** This repository contains the monorepo, a navigable Next.js prototype (authentication, app shell, dashboard, knowledge base, chat with agent activity, history, settings), the Express API, PostgreSQL via Docker Compose, Prisma, and a database-aware health endpoint. Account signup calls the real API, and the API exposes cookie-based login, refresh, and logout endpoints. The web login screen, email verification, uploads, retrieval, citations, agent executions, and AI responses in the web app remain **frontend simulations**. Real web login integration, email delivery, uploads, retrieval, embeddings, and AI providers are intentionally **not** implemented yet.
+**Current scope: Task 002 — UI Wireframe, Authentication & Dummy Components.** This repository contains the monorepo, a navigable Next.js prototype (authentication, app shell, dashboard, knowledge base, chat with agent activity, history, settings), the Express API, PostgreSQL via Docker Compose, Prisma, and a database-aware health endpoint. Account signup calls the real API, and the web login, session hydration, refresh, and logout flows use cookie-based API endpoints. Email verification, uploads, retrieval, citations, agent executions, and AI responses remain **frontend simulations**. Real email delivery, uploads, retrieval, embeddings, and AI providers are intentionally **not** implemented yet.
 
 ## Architecture
 
@@ -28,7 +28,7 @@ The web app is a complete navigable wireframe. All product data is fixed prototy
 
 | Route | Purpose |
 | --- | --- |
-| `/login` | Simulated sign-in with client validation |
+| `/login` | API-backed sign-in with cookie session |
 | `/register` | API-backed registration with client validation |
 | `/forgot-password` | Neutral reset-request confirmation |
 | `/reset-password` | Mock-token password reset |
@@ -39,9 +39,11 @@ The web app is a complete navigable wireframe. All product data is fixed prototy
 | `/history` | Grouped conversation history, search and delete confirmation |
 | `/settings` | Profile, theme, preferences, memory placeholder and privacy actions |
 
-Demo credentials: `demo@documind.ai` / `Demo@123`.
-
-The web login prototype still uses a non-httpOnly mock cookie containing only display name and email; it does not consume the API auth cookies yet. Client-side route guards are a prototype convenience, **not security**. Production authorization must be enforced by the backend. Light, Dark and System themes are supported through the semantic tokens in `apps/web/app/globals.css`; no token values are hardcoded in components.
+The web session is backed by `httpOnly` API cookies. `AuthProvider` hydrates the user through
+`GET /auth/me`, the axios interceptor refreshes once on `401`, and logout clears the cookies.
+Route guards run client-side after session hydration; server-side authorization is enforced by
+the API. Light, Dark and System themes are supported through the semantic tokens in
+`apps/web/app/globals.css`; no token values are hardcoded in components.
 
 ## Prerequisites
 
@@ -161,7 +163,8 @@ Created — HTTP `201`:
 - Email delivery is intentionally disabled with the provider call commented out in `services/email.service.ts`.
 - `isEmailVerified` remains `false`, and login is blocked until the email is verified.
 - The web register form calls this endpoint through `services/auth.service.ts` and the shared
-  axios client; the web login and email verification screens remain simulated.
+  axios client; the email verification screen remains simulated, so newly created accounts stay
+  blocked from signing in until verification is implemented.
 
 ## Login endpoints
 
@@ -196,7 +199,11 @@ Success — HTTP `200`:
   immediately after signup.
 - Invalid credentials return HTTP `401` without revealing whether the email exists.
 - `POST /api/v1/auth/refresh` rotates both tokens using the refresh cookie.
+- `GET /api/v1/auth/me` returns the current user from the access cookie and is used to hydrate
+  the web session after a reload.
 - `POST /api/v1/auth/logout` clears both cookies and revokes the stored refresh token.
+- The web login form calls the real endpoint through `services/auth.service.ts`; the shared
+  axios interceptor retries a `401` once after refreshing the cookie session.
 - CORS is configured with `credentials: true`, so `WEB_ORIGIN` must list every allowed web
   origin exactly.
 
@@ -379,7 +386,7 @@ curl -i http://localhost:3001/api/v1/health
 docker compose start postgres
 
 # 7. Browser check
-open http://localhost:3000/login   # demo@documind.ai / Demo@123
+open http://localhost:3000/login   # sign in with a verified API user
 ```
 
 ## Troubleshooting
