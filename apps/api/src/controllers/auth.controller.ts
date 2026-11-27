@@ -1,7 +1,29 @@
-import type { SignupErrorResponse, SignupResponse } from '@documind/shared';
-import type { RequestHandler } from 'express';
+import type {
+  AuthErrorResponse,
+  LoginResponse,
+  SignupErrorResponse,
+  SignupResponse,
+} from '@documind/shared';
+import type { Request, RequestHandler } from 'express';
+import type { AuthConfig } from '../config/auth';
+import {
+  ACCESS_TOKEN_TTL_SECONDS,
+  REFRESH_TOKEN_COOKIE,
+  REFRESH_TOKEN_TTL_SECONDS,
+} from '../config/auth';
 import type { PrismaClient } from '../generated/prisma/client';
 import { signupUser, validateSignupRequest } from '../services/auth.service';
+import {
+  clearAuthCookies,
+  setAuthCookies,
+} from '../services/cookie.service';
+import {
+  loginUser,
+  logoutUser,
+  refreshSession,
+  validateLoginRequest,
+  type LoginFailureReason,
+} from '../services/login.service';
 
 export function createSignupController(prisma: PrismaClient): RequestHandler {
   return async (request, response) => {
@@ -33,4 +55,136 @@ export function createSignupController(prisma: PrismaClient): RequestHandler {
 
     response.status(201).json(body);
   };
+}
+
+export function createLoginController(
+  prisma: PrismaClient,
+  auth: AuthConfig,
+): RequestHandler {
+  return async (request, response) => {
+    const validation = validateLoginRequest(request.body);
+
+    if (!validation.ok) {
+      const body: AuthErrorResponse = {
+        error: 'Validation failed',
+        fieldErrors: validation.fieldErrors,
+      };
+
+      response.status(400).json(body);
+      return;
+    }
+
+    const result = await loginUser(prisma, validation.data, auth);
+
+    if (!result.ok) {
+      const failure = loginFailure(result.reason);
+
+      response.status(failure.status).json({ error: failure.error });
+      return;
+    }
+
+    setAuthCookies(
+      response,
+      auth.cookie,
+      result.tokens,
+      ACCESS_TOKEN_TTL_SECONDS,
+      REFRESH_TOKEN_TTL_SECONDS,
+    );
+
+    const body: LoginResponse = { user: result.user };
+
+    response.status(200).json(body);
+  };
+}
+
+export function createRefreshController(
+  prisma: PrismaClient,
+  auth: AuthConfig,
+): RequestHandler {
+  return async (request, response) => {
+    const refreshToken = readRefreshToken(request);
+
+    if (refreshToken === undefined) {
+      clearAuthCookies(response, auth.cookie);
+      response.status(401).json({ error: 'Refresh token is missing.' });
+      return;
+    }
+
+    const result = await refreshSession(prisma, refreshToken, auth);
+
+    if (!result.ok) {
+      clearAuthCookies(response, auth.cookie);
+      response.status(401).json({ error: 'Session has expired.' });
+      return;
+    }
+
+    setAuthCookies(
+      response,
+      auth.cookie,
+      result.tokens,
+      ACCESS_TOKEN_TTL_SECONDS,
+      REFRESH_TOKEN_TTL_SECONDS,
+    );
+
+    const body: LoginResponse = { user: result.user };
+
+    response.status(200).json(body);
+  };
+}
+
+export function createLogoutController(
+  prisma: PrismaClient,
+  auth: AuthConfig,
+): RequestHandler {
+  return async (request, response) => {
+    const refreshToken = readRefreshToken(request);
+
+    clearAuthCookies(response, auth.cookie);
+
+    if (refreshToken !== undefined) {
+      try {
+        await logoutUser(prisma, refreshToken, auth);
+      } catch (error: unknown) {
+        console.error('Failed to revoke refresh token', error);
+      }
+    }
+
+    response.status(204).end();
+  };
+}
+
+function loginFailure(reason: LoginFailureReason): {
+  status: number;
+  error: string;
+} {
+  if (reason === 'email-unverified') {
+    return {
+      status: 403,
+      error: 'Verify your email before signing in.',
+    };
+  }
+
+  if (reason === 'account-inactive') {
+    return {
+      status: 403,
+      error: 'This account is inactive.',
+    };
+  }
+
+  return {
+    status: 401,
+    error: 'Email or password is incorrect.',
+  };
+}
+
+function readRefreshToken(request: Request): string | undefined {
+  const cookies: unknown = request.cookies;
+
+  if (typeof cookies !== 'object' || cookies === null) {
+    return undefined;
+  }
+
+  const token = (cookies as Record<string, unknown>)[REFRESH_TOKEN_COOKIE];
+
+  return typeof token === 'string' && token.length > 0 ? token : undefined;
 }

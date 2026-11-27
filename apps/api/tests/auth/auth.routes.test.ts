@@ -4,13 +4,23 @@ import type { Server } from 'node:http';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createApp } from '../../src/app.ts';
 import type { AppDependencies } from '../../src/app.ts';
+import type { AuthConfig } from '../../src/config/auth.ts';
 
 type PrismaStub = AppDependencies['prisma'];
+
+const testAuth: AuthConfig = {
+  jwtSalt: 'test-jwt-salt',
+  cookie: { secure: false, sameSite: 'lax' },
+};
 
 const servers: Server[] = [];
 
 async function startApp(prisma: PrismaStub): Promise<string> {
-  const app: Express = createApp({ prisma, webOrigins: ['http://localhost:3000'] });
+  const app: Express = createApp({
+    prisma,
+    webOrigins: ['http://localhost:3000'],
+    auth: testAuth,
+  });
   const server = app.listen(0);
   servers.push(server);
   await once(server, 'listening');
@@ -105,6 +115,7 @@ describe('auth routes', () => {
     });
     expect(JSON.stringify(body)).not.toContain('Password1');
     expect(JSON.stringify(body)).not.toContain('password');
+    expect(response.headers.getSetCookie()).toEqual([]);
   });
 
   it('returns field errors for invalid input', async () => {

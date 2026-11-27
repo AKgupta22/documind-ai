@@ -2,7 +2,7 @@
 
 Personal AI document intelligence assistant. Users will upload PDFs and TXT files, ask questions about them, and use an AI agent to search, summarize, and extract action items.
 
-**Current scope: Task 002 — UI Wireframe, Authentication & Dummy Components.** This repository contains the monorepo, a navigable Next.js prototype (authentication, app shell, dashboard, knowledge base, chat with agent activity, history, settings), the Express API, PostgreSQL via Docker Compose, Prisma, and a database-aware health endpoint. Account signup is wired to the API; login sessions, email verification, uploads, retrieval, citations, agent executions, and AI responses in the web app remain **frontend simulations**. Real login/session handling, email delivery, uploads, retrieval, embeddings, and AI providers are intentionally **not** implemented yet.
+**Current scope: Task 002 — UI Wireframe, Authentication & Dummy Components.** This repository contains the monorepo, a navigable Next.js prototype (authentication, app shell, dashboard, knowledge base, chat with agent activity, history, settings), the Express API, PostgreSQL via Docker Compose, Prisma, and a database-aware health endpoint. Account signup calls the real API, and the API exposes cookie-based login, refresh, and logout endpoints. The web login screen, email verification, uploads, retrieval, citations, agent executions, and AI responses in the web app remain **frontend simulations**. Real web login integration, email delivery, uploads, retrieval, embeddings, and AI providers are intentionally **not** implemented yet.
 
 ## Architecture
 
@@ -41,10 +41,7 @@ The web app is a complete navigable wireframe. All product data is fixed prototy
 
 Demo credentials: `demo@documind.ai` / `Demo@123`.
 
-The session is a non-httpOnly mock cookie containing only display name and email. Client-side
-route guards are a prototype convenience, **not security**. Production authorization must be
-enforced by the backend. Light, Dark and System themes are supported through the semantic
-tokens in `apps/web/app/globals.css`; no token values are hardcoded in components.
+The web login prototype still uses a non-httpOnly mock cookie containing only display name and email; it does not consume the API auth cookies yet. Client-side route guards are a prototype convenience, **not security**. Production authorization must be enforced by the backend. Light, Dark and System themes are supported through the semantic tokens in `apps/web/app/globals.css`; no token values are hardcoded in components.
 
 ## Prerequisites
 
@@ -80,6 +77,8 @@ pnpm db:generate
 ```
 
 The values in `.env.example` are local development placeholders. Replace them for any shared environment. `.env`, `.env.local`, and `.env.*` are gitignored; only `*.env.example` files are committed.
+
+Auth cookies are configured per environment with `JWT_SALT`, `COOKIE_DOMAIN`, `COOKIE_SECURE`, and `COOKIE_SAME_SITE` in `apps/api/.env`. The web app sends cookies through the shared axios client (`withCredentials: true`) and refreshes a 401 once through `/auth/refresh`.
 
 ## Running locally
 
@@ -160,9 +159,58 @@ Created — HTTP `201`:
 - Invalid input returns HTTP `400` with `fieldErrors`.
 - Signup creates a link-style verification token in `email_verifications`, storing only its SHA-256 hash with a 24-hour expiry.
 - Email delivery is intentionally disabled with the provider call commented out in `services/email.service.ts`.
-- `isEmailVerified` remains `false`, and verification is not enforced yet.
+- `isEmailVerified` remains `false`, and login is blocked until the email is verified.
 - The web register form calls this endpoint through `services/auth.service.ts` and the shared
-  axios client; login and email verification remain simulated.
+  axios client; the web login and email verification screens remain simulated.
+
+## Login endpoints
+
+`POST /api/v1/auth/login` authenticates an existing, verified user and sets two `httpOnly`
+cookies. Tokens are never returned in the response body.
+
+```json
+{
+  "email": "avery@example.com",
+  "password": "Password1"
+}
+```
+
+Success — HTTP `200`:
+
+```json
+{
+  "user": {
+    "id": "b5f8c8d4-...",
+    "fullname": "Avery Morgan",
+    "email": "avery@example.com",
+    "isEmailVerified": true
+  }
+}
+```
+
+- Access token cookie: 15 minutes (`dm_access_token`).
+- Refresh token cookie: 30 minutes (`dm_refresh_token`).
+- Both cookies are `httpOnly`, `path=/`, and use the configured `SameSite`/`Secure` policy.
+- Only a SHA-256 hash of the refresh token is stored in `users.refresh_token`.
+- Login is blocked with HTTP `403` while `isEmailVerified` is `false`, so a user cannot sign in
+  immediately after signup.
+- Invalid credentials return HTTP `401` without revealing whether the email exists.
+- `POST /api/v1/auth/refresh` rotates both tokens using the refresh cookie.
+- `POST /api/v1/auth/logout` clears both cookies and revokes the stored refresh token.
+- CORS is configured with `credentials: true`, so `WEB_ORIGIN` must list every allowed web
+  origin exactly.
+
+Cookie deployment settings live in `apps/api/.env`:
+
+```bash
+JWT_SALT=replace-with-a-long-random-secret
+# COOKIE_DOMAIN=          # optional shared parent domain, e.g. .documind.example
+# COOKIE_SECURE=true      # defaults to true when NODE_ENV=production
+# COOKIE_SAME_SITE=lax    # lax, strict, or none (none forces Secure)
+```
+
+Use `COOKIE_SAME_SITE=none` plus HTTPS when the web app and API are on different sites. Use a
+shared `COOKIE_DOMAIN` when they are on different subdomains of the same site.
 
 ## Commands
 
@@ -269,6 +317,9 @@ plain TypeScript types/constants.
 | `prisma` (dev)                    | CLI for `generate`, `migrate`, `validate`, `studio`                  |
 | `@prisma/adapter-pg`, `pg`        | Prisma 7 requires a driver adapter; these connect to PostgreSQL      |
 | `bcryptjs`                        | Password hashing for the signup flow at bcrypt cost 8                |
+| `jsonwebtoken`                    | Signs and verifies access/refresh JWTs                               |
+| `cookie-parser`                   | Reads the refresh-token cookie on refresh/logout                     |
+| `zod`                             | Lightweight schema validation for signup and login requests          |
 | `axios`                           | Web HTTP client with shared request/response interceptors            |
 | `dotenv`                          | Loads `.env` at API startup and for `prisma.config.ts` CLI commands  |
 | `tsx` (dev)                       | TypeScript execution + watch mode for the API during development     |
@@ -342,6 +393,10 @@ open http://localhost:3000/login   # demo@documind.ai / Demo@123
   approvals live in `pnpm-workspace.yaml` under `allowBuilds`.
 - **Missing Prisma client types** — run `pnpm db:generate`.
 - **CORS errors in the browser** — `WEB_ORIGIN` must exactly match the web origin
-  (scheme + host + port), with no trailing slash.
+  (scheme + host + port), with no trailing slash. Auth uses credentialed requests, so a
+  wildcard origin is not allowed.
+- **Auth cookies are not sent across environments** — set `COOKIE_DOMAIN` for subdomain
+  sharing, or `COOKIE_SAME_SITE=none` with `COOKIE_SECURE=true` and HTTPS for cross-site
+  deployments.
 - **Docker not installed** — install Docker Compose, or point `DATABASE_URL` at any
   reachable PostgreSQL 17 instance.
