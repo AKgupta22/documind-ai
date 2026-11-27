@@ -1,6 +1,8 @@
 import { API_PREFIX } from '@documind/shared';
+import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import express, { type Express } from 'express';
+import type { AuthConfig } from './config/auth';
 import type { PrismaClient } from './generated/prisma/client';
 import { errorHandler } from './middlewares/error.middleware';
 import { notFoundHandler } from './middlewares/not-found.middleware';
@@ -9,16 +11,22 @@ import { createApiRouter } from './routes';
 export interface AppDependencies {
   prisma: PrismaClient;
   webOrigins: string[];
+  auth: AuthConfig;
 }
 
-export function createApp({ prisma, webOrigins }: AppDependencies): Express {
+export function createApp({
+  prisma,
+  webOrigins,
+  auth,
+}: AppDependencies): Express {
   const app = express();
 
   app.disable('x-powered-by');
-  app.use(cors({ origin: webOrigins }));
+  app.use(cors({ origin: webOrigins, credentials: true }));
+  app.use(cookieParser());
   app.use(express.json({ limit: '1mb' }));
 
-  app.use(`/${API_PREFIX}`, createApiRouter(prisma));
+  app.use(`/${API_PREFIX}`, createApiRouter(prisma, auth));
 
   app.use(notFoundHandler);
   app.use(errorHandler);

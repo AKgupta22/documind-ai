@@ -6,7 +6,11 @@ import { createPrismaClient } from './models/prisma.model';
 async function bootstrap(): Promise<void> {
   const config = loadConfig();
   const prisma = createPrismaClient(config.databaseUrl);
-  const app = createApp({ prisma, webOrigins: config.webOrigins });
+  const app = createApp({
+    prisma,
+    webOrigins: config.webOrigins,
+    auth: { jwtSalt: config.jwtSalt, cookie: config.cookie },
+  });
 
   const server = app.listen(config.port, () => {
     console.log(

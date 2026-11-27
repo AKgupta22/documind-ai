@@ -1,8 +1,10 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { hash } from 'bcryptjs';
 import type { SignupRequest } from '@documind/shared';
+import { z } from 'zod';
 import type { PrismaClient } from '../generated/prisma/client';
 import { sendVerificationEmail } from './email.service';
+import { validateWithSchema } from './validation.service';
 
 export const BCRYPT_ROUNDS = 8;
 
@@ -20,64 +22,53 @@ export type SignupValidationResult =
   | { ok: true; data: SignupRequest }
   | { ok: false; fieldErrors: SignupFieldErrors };
 
+const signupSchema = z.object({
+  fullname: z.preprocess(
+    (value) => (typeof value === 'string' ? value.trim() : ''),
+    z
+      .string()
+      .min(1, 'Full name is required.')
+      .min(2, 'Full name must be at least 2 characters.')
+      .max(
+        MAX_FULLNAME_LENGTH,
+        `Full name must be at most ${MAX_FULLNAME_LENGTH} characters.`,
+      ),
+  ),
+  email: z.preprocess(
+    (value) => (typeof value === 'string' ? value.trim().toLowerCase() : ''),
+    z
+      .string()
+      .min(1, 'Email is required.')
+      .max(
+        MAX_EMAIL_LENGTH,
+        `Email must be at most ${MAX_EMAIL_LENGTH} characters.`,
+      )
+      .regex(EMAIL_PATTERN, 'Enter a valid email address.'),
+  ),
+  password: z.preprocess(
+    (value) => (typeof value === 'string' ? value : ''),
+    z
+      .string()
+      .min(1, 'Password is required.')
+      .refine(
+        (value) => Buffer.byteLength(value, 'utf8') <= MAX_PASSWORD_BYTES,
+        `Password must be at most ${MAX_PASSWORD_BYTES} bytes.`,
+      )
+      .min(8, 'Use at least 8 characters.')
+      .refine(
+        (value) =>
+          /[a-z]/.test(value) && /[A-Z]/.test(value) && /[0-9]/.test(value),
+        'Include uppercase, lowercase, and a number.',
+      ),
+  ),
+});
+
 export type SignupResult =
   | { ok: true; user: { id: string; fullname: string; email: string; isEmailVerified: boolean } }
   | { ok: false; reason: 'email-taken' };
 
 export function validateSignupRequest(body: unknown): SignupValidationResult {
-  const input = isRecord(body) ? body : {};
-  const fieldErrors: SignupFieldErrors = {};
-
-  const fullname =
-    typeof input['fullname'] === 'string' ? input['fullname'].trim() : '';
-  const email =
-    typeof input['email'] === 'string'
-      ? input['email'].trim().toLowerCase()
-      : '';
-  const password = typeof input['password'] === 'string' ? input['password'] : '';
-
-  if (fullname.length === 0) {
-    fieldErrors.fullname = 'Full name is required.';
-  } else if (fullname.length < 2) {
-    fieldErrors.fullname = 'Full name must be at least 2 characters.';
-  } else if (fullname.length > MAX_FULLNAME_LENGTH) {
-    fieldErrors.fullname = `Full name must be at most ${MAX_FULLNAME_LENGTH} characters.`;
-  }
-
-  if (email.length === 0) {
-    fieldErrors.email = 'Email is required.';
-  } else if (email.length > MAX_EMAIL_LENGTH) {
-    fieldErrors.email = `Email must be at most ${MAX_EMAIL_LENGTH} characters.`;
-  } else if (!EMAIL_PATTERN.test(email)) {
-    fieldErrors.email = 'Enter a valid email address.';
-  }
-
-  if (password.length === 0) {
-    fieldErrors.password = 'Password is required.';
-  } else if (Buffer.byteLength(password, 'utf8') > MAX_PASSWORD_BYTES) {
-    fieldErrors.password = 'Password must be at most 72 bytes.';
-  } else if (password.length < 8) {
-    fieldErrors.password = 'Use at least 8 characters.';
-  } else if (
-    !/[a-z]/.test(password) ||
-    !/[A-Z]/.test(password) ||
-    !/[0-9]/.test(password)
-  ) {
-    fieldErrors.password = 'Include uppercase, lowercase, and a number.';
-  }
-
-  if (Object.keys(fieldErrors).length > 0) {
-    return { ok: false, fieldErrors };
-  }
-
-  return {
-    ok: true,
-    data: {
-      fullname,
-      email,
-      password,
-    },
-  };
+  return validateWithSchema(signupSchema, body);
 }
 
 export async function signupUser(
@@ -156,8 +147,4 @@ function isUniqueConstraintError(error: unknown): boolean {
     'code' in error &&
     error.code === 'P2002'
   );
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
