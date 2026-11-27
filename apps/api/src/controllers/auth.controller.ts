@@ -7,6 +7,7 @@ import type {
 import type { Request, RequestHandler } from 'express';
 import type { AuthConfig } from '../config/auth';
 import {
+  ACCESS_TOKEN_COOKIE,
   ACCESS_TOKEN_TTL_SECONDS,
   REFRESH_TOKEN_COOKIE,
   REFRESH_TOKEN_TTL_SECONDS,
@@ -18,6 +19,7 @@ import {
   setAuthCookies,
 } from '../services/cookie.service';
 import {
+  getSessionUser,
   loginUser,
   logoutUser,
   refreshSession,
@@ -97,12 +99,37 @@ export function createLoginController(
   };
 }
 
+export function createMeController(
+  prisma: PrismaClient,
+  auth: AuthConfig,
+): RequestHandler {
+  return async (request, response) => {
+    const accessToken = readCookie(request, ACCESS_TOKEN_COOKIE);
+
+    if (accessToken === undefined) {
+      response.status(401).json({ error: 'Not authenticated.' });
+      return;
+    }
+
+    const result = await getSessionUser(prisma, accessToken, auth);
+
+    if (!result.ok) {
+      response.status(401).json({ error: 'Not authenticated.' });
+      return;
+    }
+
+    const body: LoginResponse = { user: result.user };
+
+    response.status(200).json(body);
+  };
+}
+
 export function createRefreshController(
   prisma: PrismaClient,
   auth: AuthConfig,
 ): RequestHandler {
   return async (request, response) => {
-    const refreshToken = readRefreshToken(request);
+    const refreshToken = readCookie(request, REFRESH_TOKEN_COOKIE);
 
     if (refreshToken === undefined) {
       clearAuthCookies(response, auth.cookie);
@@ -137,7 +164,7 @@ export function createLogoutController(
   auth: AuthConfig,
 ): RequestHandler {
   return async (request, response) => {
-    const refreshToken = readRefreshToken(request);
+    const refreshToken = readCookie(request, REFRESH_TOKEN_COOKIE);
 
     clearAuthCookies(response, auth.cookie);
 
@@ -177,14 +204,14 @@ function loginFailure(reason: LoginFailureReason): {
   };
 }
 
-function readRefreshToken(request: Request): string | undefined {
+function readCookie(request: Request, name: string): string | undefined {
   const cookies: unknown = request.cookies;
 
   if (typeof cookies !== 'object' || cookies === null) {
     return undefined;
   }
 
-  const token = (cookies as Record<string, unknown>)[REFRESH_TOKEN_COOKIE];
+  const token = (cookies as Record<string, unknown>)[name];
 
   return typeof token === 'string' && token.length > 0 ? token : undefined;
 }

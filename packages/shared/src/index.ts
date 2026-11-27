@@ -12,6 +12,8 @@ export const AUTH_REFRESH_PATH = `${AUTH_PATH}/refresh`;
 
 export const AUTH_LOGOUT_PATH = `${AUTH_PATH}/logout`;
 
+export const AUTH_ME_PATH = `${AUTH_PATH}/me`;
+
 export interface SignupRequest {
   fullname: string;
   email: string;

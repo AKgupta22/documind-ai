@@ -8,7 +8,7 @@ DocuMind AI is a personal AI document intelligence assistant. Users upload PDF a
 
 **Current scope: Task 002 — UI Wireframe, Authentication & Dummy Components.** The repository contains the monorepo, the Next.js App Router web app with a full navigable prototype (authentication screens, app shell, dashboard, knowledge base, chat with agent activity, history, settings), the Express API, PostgreSQL via Docker Compose, Prisma, and a database-aware health endpoint.
 
-Account signup calls the real API, and the API exposes cookie-based login, refresh, and logout endpoints with 15-minute access tokens and 30-minute refresh tokens. The web login screen, email verification, uploads, AI responses, citations, and agent executions remain **frontend simulations**. Real web login integration, email delivery, uploads, retrieval, embeddings, and AI providers remain **not implemented**. Do not add them unless a task explicitly asks.
+Account signup calls the real API, and the web login, session hydration, refresh, and logout flows use cookie-based API endpoints with 15-minute access tokens and 30-minute refresh tokens. Email verification, uploads, AI responses, citations, and agent executions remain **frontend simulations**. Real email delivery, uploads, retrieval, embeddings, and AI providers remain **not implemented**. Do not add them unless a task explicitly asks.
 
 ## Architecture
 
@@ -151,7 +151,7 @@ docker compose up -d
 curl -i http://localhost:3001/api/v1/health   # expect 200 + "database":{"status":"up"}
 ```
 
-Frontend route smoke checks (with the web dev server running) should cover `/login`, `/dashboard`, `/documents`, `/chat`, `/chat/conv-1`, `/history`, and `/settings`. Demo credentials: `demo@documind.ai` / `Demo@123`.
+Frontend route smoke checks (with the web dev server running) should cover `/login`, `/dashboard`, `/documents`, `/chat`, `/chat/conv-1`, `/history`, and `/settings`. Sign in with a verified account from the API database; newly signed-up accounts remain blocked until email verification is implemented.
 
 Failure path: `docker compose stop postgres`, expect HTTP 503 with `"status":"down"`, then `docker compose start postgres`.
 

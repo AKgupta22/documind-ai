@@ -270,6 +270,50 @@ describe('login routes', () => {
     expect(rotated).not.toBe(`dm_refresh_token=${refreshToken ?? ''}`);
   });
 
+  it('returns the current user from the access cookie', async () => {
+    const { prisma } = prismaStub(await verifiedUser());
+    const baseUrl = await startApp(prisma);
+
+    const loginResponse = await fetch(`${baseUrl}/api/v1/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: 'avery@example.com',
+        password: 'Password1',
+      }),
+    });
+    const accessSetCookie = loginResponse.headers
+      .getSetCookie()
+      .find((entry) => entry.startsWith('dm_access_token='));
+    const accessToken = cookieValue(accessSetCookie ?? '', 'dm_access_token');
+
+    const response = await fetch(`${baseUrl}/api/v1/auth/me`, {
+      headers: { Cookie: `dm_access_token=${accessToken ?? ''}` },
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      user: {
+        id: 'user-1',
+        fullname: 'Avery Morgan',
+        email: 'avery@example.com',
+        isEmailVerified: true,
+      },
+    });
+  });
+
+  it('returns 401 for the current user without an access cookie', async () => {
+    const { prisma } = prismaStub(await verifiedUser());
+    const baseUrl = await startApp(prisma);
+
+    const response = await fetch(`${baseUrl}/api/v1/auth/me`);
+
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Not authenticated.',
+    });
+  });
+
   it('clears cookies and revokes the refresh token on logout', async () => {
     const { prisma, updateMany } = prismaStub(await verifiedUser());
     const baseUrl = await startApp(prisma);

@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  login,
   resetPassword,
   verifyEmail,
 } from '@/lib/auth/mock-auth-service';
@@ -12,35 +11,6 @@ describe('mock auth service', () => {
 
   afterEach(() => {
     vi.useRealTimers();
-  });
-
-  it('accepts the documented demo credentials', async () => {
-    const resultPromise = login({
-      email: 'demo@documind.ai',
-      password: 'Demo@123',
-      remember: true,
-    });
-    await vi.advanceTimersByTimeAsync(600);
-
-    const result = await resultPromise;
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.user.email).toBe('demo@documind.ai');
-    }
-  });
-
-  it('rejects invalid credentials', async () => {
-    const resultPromise = login({
-      email: 'demo@documind.ai',
-      password: 'wrong-password',
-      remember: false,
-    });
-    await vi.advanceTimersByTimeAsync(600);
-
-    await expect(resultPromise).resolves.toMatchObject({
-      ok: false,
-      error: expect.stringContaining('incorrect'),
-    });
   });
 
   it('validates the mock reset token', async () => {

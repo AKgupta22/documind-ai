@@ -47,8 +47,8 @@ export function PrivacySection() {
       <div className="flex flex-col gap-2 border-t border-border pt-4">
         <p className="text-sm font-medium text-danger">Delete account</p>
         <p className="text-xs text-foreground-secondary">
-          This prototype has no account deletion endpoint. Confirming signs you out and
-          clears the mock session.
+          This prototype has no account deletion endpoint. Confirming signs you out of your
+          current session.
         </p>
         <Button
           type="button"
@@ -65,7 +65,7 @@ export function PrivacySection() {
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
         title="Delete account?"
-        description="No account or data will be deleted because this is a prototype. You will be signed out of the mock session."
+        description="No account or data will be deleted because this is a prototype. You will be signed out of your current session."
         confirmLabel="Sign out"
         onConfirm={() => {
           void handleDeleteAccount();

@@ -30,7 +30,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   async function handleSignOut() {
-    // TODO: REMOVE MOCK — Replace simulated logout with backend integration.
     await signOut();
     router.replace('/login');
     router.refresh();

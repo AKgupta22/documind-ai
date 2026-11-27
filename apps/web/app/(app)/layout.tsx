@@ -1,16 +1,25 @@
-import { cookies } from 'next/headers';
-import { redirect } from 'next/navigation';
-import { AppShell } from '@/components/shared/app-shell';
-import { MOCK_SESSION_COOKIE, parseMockUser } from '@/lib/auth/session-cookie';
+'use client';
 
-export default async function AppGroupLayout({
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
+import { AuthLoading } from '@/components/auth/auth-loading';
+import { useAuth } from '@/components/auth/auth-provider';
+import { AppShell } from '@/components/shared/app-shell';
+
+export default function AppGroupLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  const cookieStore = await cookies();
-  const session = parseMockUser(cookieStore.get(MOCK_SESSION_COOKIE)?.value);
+  const router = useRouter();
+  const { user, isReady } = useAuth();
 
-  if (!session) {
-    redirect('/login');
+  useEffect(() => {
+    if (isReady && user === null) {
+      router.replace('/login');
+    }
+  }, [isReady, router, user]);
+
+  if (!isReady || user === null) {
+    return <AuthLoading />;
   }
 
   return <AppShell>{children}</AppShell>;

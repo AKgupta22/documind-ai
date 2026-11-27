@@ -4,7 +4,6 @@ import { afterEach, vi } from 'vitest';
 
 afterEach(() => {
   cleanup();
-  document.cookie = 'dm_mock_session=; path=/; max-age=0';
   window.localStorage.clear();
 });
 

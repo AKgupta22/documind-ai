@@ -5,12 +5,6 @@ export interface AuthUser {
   initials: string;
 }
 
-export interface LoginInput {
-  email: string;
-  password: string;
-  remember: boolean;
-}
-
 export interface ResetPasswordInput {
   token: string;
   password: string;
